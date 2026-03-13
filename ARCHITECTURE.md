@@ -201,22 +201,32 @@ HS-FinancialServices/
 │           ├── position_service.cpp
 │           └── price_history_service.cpp
 │
-└── load_generator/
+├── load_generator/
+│   ├── CMakeLists.txt
+│   ├── include/
+│   │   ├── client_session.hpp         # One simulated client (Boost.Asio)
+│   │   └── metrics_collector.hpp      # Thread-safe latency/RPS stats
+│   └── src/
+│       ├── main.cpp                   # Load generator entry point
+│       ├── client_session.cpp
+│       └── metrics_collector.cpp
+│
+└── ui_client/                         # MFC GUI test client (Windows only)
     ├── CMakeLists.txt
-    ├── include/
-    │   ├── client_session.hpp         # One simulated client (Boost.Asio)
-    │   └── metrics_collector.hpp      # Thread-safe latency/RPS stats
+    ├── res/
+    │   ├── resource.h                 # Resource ID definitions
+    │   └── HSClientApp.rc             # Dialog layout, menus, version info
     └── src/
-        ├── main.cpp                   # Load generator entry point
-        ├── client_session.cpp
-        └── metrics_collector.cpp
+        ├── stdafx.h / stdafx.cpp      # Precompiled MFC + Winsock headers
+        ├── HSClientApp.h / .cpp       # CWinApp-derived application class
+        └── MainDlg.h / .cpp           # Main dialog (all UI logic + TCP client)
 ```
 
 ---
 
 ## Building
 
-### Prerequisites
+### Prerequisites (server + load generator)
 
 - CMake ≥ 3.16
 - GCC ≥ 9 or Clang ≥ 10 with C++17 support
@@ -236,6 +246,69 @@ make -j$(nproc)
 The two executables are placed at:
 - `build/server/hs_server`
 - `build/load_generator/hs_loadgen`
+
+### Prerequisites (MFC UI client – Windows only)
+
+- Visual Studio 2019 or 2022 with the **"MFC and ATL support"** workload
+- CMake ≥ 3.16
+
+```bat
+:: Developer Command Prompt for VS 2022
+cmake -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release --target hs_ui_client
+:: Executable: build\ui_client\Release\hs_ui_client.exe
+```
+
+---
+
+## MFC UI Client – Design notes
+
+The `ui_client` (`hs_ui_client.exe`) is a **dialog-based MFC application** that
+acts as an interactive test harness for the banking server.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  HS Financial Services – Client Test Application            │
+├─────────────────────────────────────────────────────────────┤
+│ Connection ─────────────────────────────────────────────── │
+│  Host: [127.0.0.1      ] Port: [9000] [Connect][Disconnect] │
+│  ● Connected                                                 │
+├─────────────────────────────────────────────────────────────┤
+│ Command ───────────────────────────────────────────────────  │
+│  [★ BATCH TEST – Run all services sequentially  ▼] [ Run ] │
+├─────────────────────────────────────────────────────────────┤
+│ Output ────────────────────────────────────────────────────  │
+│  [10:42:01]  ╔══════════════════════════════╗               │
+│  [10:42:01]  ║   HS Financial Services      ║               │
+│  [10:42:01]  ╚══════════════════════════════╝               │
+│  [10:42:02]  Sending BUY request...                         │
+│  [10:42:02]  ✓ BUY order ORD-1 acknowledged in 0.3 ms       │
+│                                           [ Clear Output ]  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Available commands (combo box)
+
+| # | Command | Service |
+|---|---------|---------|
+| 1 | Login | Ping + session establishment |
+| 2 | Logout | Graceful disconnect |
+| 3 | Ping server | `kPing` heartbeat |
+| 4–6 | SQL Query (AAPL / MSFT / all) | `kSqlQuery` |
+| 7–8 | Buy Order (AAPL / MSFT) | `kBuyOrder` |
+| 9–10 | Sell Order (AAPL / TSLA) | `kSellOrder` |
+| 11–12 | Get Position (ACC-001 / ACC-002) | `kGetPosition` |
+| 13–15 | Price History (AAPL 30d / MSFT 7d / GOOGL 14d) | `kGetPriceHistory` |
+| 16 | ★ Batch Test | Runs all 12 tests in sequence |
+
+### Threading model
+
+- UI thread: MFC message pump, all control interactions.
+- Worker thread: one `std::thread` per button press; uses blocking Winsock 2
+  calls.  Posts `WM_LOG_LINE` / `WM_WORKER_DONE` back to the UI thread.
+- No shared mutable state between the UI thread and the worker other than
+  `m_socket` (which is only modified from the UI thread while no worker is
+  running) and `m_connected` (boolean flag, read-only from the worker).
 
 ---
 

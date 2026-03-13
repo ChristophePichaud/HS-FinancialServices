@@ -22,3 +22,8 @@ find_package(Threads REQUIRED)
 # ── Sub-projects ─────────────────────────────────────────────────────────────
 add_subdirectory(server)
 add_subdirectory(load_generator)
+
+# ── MFC UI client (Windows only) ─────────────────────────────────────────────
+if(WIN32)
+    add_subdirectory(ui_client)
+endif()

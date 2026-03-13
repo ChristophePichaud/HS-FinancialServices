@@ -12,16 +12,17 @@ asynchronous I/O, giving you a thread-safe, lock-minimal server that can handle
 **hundreds of thousands of requests per second** while keeping P99 latencies
 well below 1 ms on loopback.
 
-The repository contains two applications:
+The repository contains three applications:
 
-| Application | Description |
-|-------------|-------------|
-| `hs_server` | The banking service (TCP, async, multi-threaded) |
-| `hs_loadgen` | A Boost.Asio load generator that simulates thousands of concurrent banking clients |
+| Application | Platform | Description |
+|-------------|----------|-------------|
+| `hs_server` | Linux / Windows | The banking service (TCP, async, multi-threaded) |
+| `hs_loadgen` | Linux / Windows | A Boost.Asio load generator that simulates thousands of concurrent banking clients |
+| `hs_ui_client` | **Windows only** | An MFC GUI test client – exercise every server service interactively with a single click |
 
 ---
 
-## Quick start
+## Quick start (server + load generator)
 
 ```bash
 # Prerequisites (Ubuntu/Debian)
@@ -39,6 +40,42 @@ make -j$(nproc)
 # In another terminal: run a 10-second load test with 100 concurrent clients
 ./load_generator/hs_loadgen --clients 100 --duration 10
 ```
+
+---
+
+## MFC UI Client (Windows)
+
+`hs_ui_client` is a Windows MFC dialog application that lets you exercise every
+banking service through a point-and-click GUI — ideal for demos and integration
+testing.
+
+### Features
+
+- **Connection panel** – enter the server host and port, then click **Connect**
+  or **Disconnect**.  A colour-coded status indicator shows session state.
+- **Command drop-down** – 16 pre-built test cases covering all services:
+  Login, Logout, Ping, SQL Queries, Buy/Sell Orders, Get Position, Price
+  History, and a **Batch Test** that runs all services in sequence.
+- **Output panel** – scrollable, timestamped log of every request and response.
+  Click **Clear Output** to reset.
+- All network I/O runs on a background thread so the UI stays responsive.
+
+### Build (Visual Studio)
+
+```bat
+:: Prerequisites: Visual Studio 2019/2022 with "MFC and ATL support" workload
+
+cmake -B build -G "Visual Studio 17 2022" -A x64
+cmake --build build --config Release --target hs_ui_client
+:: Executable: build\ui_client\Release\hs_ui_client.exe
+```
+
+### Usage
+
+1. Start `hs_server` on the target machine (default port 9000).
+2. Launch `hs_ui_client.exe`.
+3. Set **Host** and **Port**, then press **Connect**.
+4. Choose a command from the drop-down, press **Run**, and observe the output.
 
 ---
 
@@ -96,4 +133,6 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for:
 - **C++17** – RAII, smart pointers, structured bindings, `std::atomic`
 - **Boost.Asio 1.74+** – async TCP, timer, signal handling
 - **Boost.Program_options** – command-line configuration
+- **MFC (Microsoft Foundation Classes)** – Windows GUI for the test client
+- **Winsock 2** – TCP networking in the MFC client
 - **CMake 3.16+** – build system
